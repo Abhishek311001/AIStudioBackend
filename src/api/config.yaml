@@ -1,4 +1,6 @@
 redis:
   port: 6379
-  domain: "localhost"
+  domain: "redis"
   queue_name: "task_queue"
+postgres:
+  

@@ -5,6 +5,7 @@ import uvicorn
 import logging
 from typing import Annotated
 import rq
+import psycopg2
 from tasks import random_task
 
 # Configure the root logger
@@ -19,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 #containse redis configs
 config = yaml.safe_load(open('config.yaml'))
+
+
+#########################   Dependencies   #########################
+####################################################################
 
 #Dependency to get a Redis connection
 async def get_redis():
@@ -38,6 +43,12 @@ QUEUE_NAME = config["redis"]["queue_name"]
 # Initialize the FastAPI application
 app = FastAPI()
 
+
+
+
+
+############################ API Endpoints ############################
+########################################################################
 #Startup event to check Redis connection and log the startup process
 @app.on_event("startup")
 async def startup_event():
@@ -50,7 +61,7 @@ async def startup_event():
         exit(0)
 
 # Health check endpoint to verify that the application is running
-@app.get("/health")
+@app.get("/health",)
 async def health():
     return {"status": "ok"}
 
