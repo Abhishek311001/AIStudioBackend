@@ -1,9 +1,0 @@
-fastapi
-fastapi[standard]
-pydantic[email]
-redis
-rq
-pyyaml
-psycopg2-binary
-sqlalchemy
-alembic
