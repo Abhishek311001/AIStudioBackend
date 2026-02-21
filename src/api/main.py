@@ -1,93 +1,45 @@
-from fastapi import FastAPI, Depends
-import redis
-import yaml
-import uvicorn
 import logging
-from typing import Annotated
-import rq
-import psycopg2
-from tasks import random_task
+import uvicorn
+from fastapi import FastAPI
+from dependencies import get_redis_conn, get_db
+from routes import health, tasks, tenants, roles, users
 
-# Configure the root logger
 logging.basicConfig(
-    level=logging.INFO, # Set the minimum logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    handlers=[logging.StreamHandler()] # Output logs to the console (stdout/stderr)
+    handlers=[logging.StreamHandler()],
 )
-
-# Get a logger for your application module
 logger = logging.getLogger(__name__)
 
-#containse redis configs
-config = yaml.safe_load(open('config.yaml'))
+app = FastAPI(title="Backend API")
+
+app.include_router(health.router)
+app.include_router(tasks.router)
+app.include_router(tenants.router)
+app.include_router(roles.router)
+app.include_router(users.router)
 
 
-#########################   Dependencies   #########################
-####################################################################
-
-#Dependency to get a Redis connection
-async def get_redis():
-    logger.info("Connecting to Redis...")
-    try:
-        r = redis.Redis(host=config["redis"]["domain"], port=config["redis"]["port"], db=0)
-        r.ping()
-        logger.info("Connected to Redis successfully.")
-    except redis.ConnectionError as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        raise Exception("Could not connect to Redis") from e
-    return r
-
-# Get the queue name from the config
-QUEUE_NAME = config["redis"]["queue_name"] 
-
-# Initialize the FastAPI application
-app = FastAPI()
-
-
-
-
-
-############################ API Endpoints ############################
-########################################################################
-#Startup event to check Redis connection and log the startup process
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting up the FastAPI application...")
+    logger.info("Starting up...")
 
     try:
-        await get_redis()
+        await get_redis_conn()
+        logger.info("Redis connected.")
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        exit(0)
+        logger.error(f"Redis health check failed: {e}")
+        exit(1)
 
-# Health check endpoint to verify that the application is running
-@app.get("/health",)
-async def health():
-    return {"status": "ok"}
-
-# Endpoint to add a task to the Redis queue
-@app.post("/add_task")
-async def add_task(task_count: Annotated[int, "count of tasks"] = 0, redis: Annotated[redis.Redis | None, Depends(get_redis)] = None):
     try:
-        r = rq.Queue(QUEUE_NAME, connection=redis)
-        for _ in range(task_count):
-            job = r.enqueue(random_task)
-            logger.info(f"Added task: {job.id}")
-        return {"message": f"{task_count} tasks added successfully."}
+        db = next(get_db())
+        db.close()
+        logger.info("PostgreSQL connected.")
     except Exception as e:
-        logger.error(f"Failed to add task: {e}")
-        return {"error": "Failed to add task"}
+        logger.error(f"PostgreSQL health check failed: {e}")
+        exit(1)
 
-@app.get("/len_queue")
-async def len_queue(redis: Annotated[redis.Redis, Depends(get_redis)]):
-    try:
-        r = rq.Queue(QUEUE_NAME, connection=redis)
-        length = r.count
-        logger.info(f"Queue length: {length}")
-        return {"queue_length": length}
-    except Exception as e:
-        logger.error(f"Failed to get queue length: {e}")
-        return {"error": "Failed to get queue length"}
+    logger.info("Startup complete.")
 
 
 if __name__ == "__main__":

@@ -1,14 +1,17 @@
 services:
   api:
     build:
-      context: ./src/api
+      context: ./src
+      dockerfile: api/Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/appdb"
     depends_on:
       redis:
         condition: service_started
       postgres:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - backend
@@ -33,6 +36,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     networks:
       - backend

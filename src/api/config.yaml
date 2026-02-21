@@ -3,4 +3,8 @@ redis:
   domain: "redis"
   queue_name: "task_queue"
 postgres:
-  
+  domain: "postgres"
+  port: 5432
+  dbname: "appdb"
+  user: "postgres"
+  password: "postgres"
